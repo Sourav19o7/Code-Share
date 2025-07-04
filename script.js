@@ -21,8 +21,11 @@ class CodeShare {
         this.togglePreview = document.getElementById('togglePreview');
         
         this.currentTimer = null;
-        this.storage = new Map();
+        this.storageKey = 'codeShare_';
         this.isPreviewMode = false;
+        
+        // Clean up expired items on initialization
+        this.cleanupExpiredItems();
     }
 
     setupEventListeners() {
@@ -112,7 +115,59 @@ class CodeShare {
         }
     }
 
-    detectLanguage(code) {
+    // Storage methods using localStorage
+    saveToStorage(shareId, data) {
+        try {
+            localStorage.setItem(this.storageKey + shareId, JSON.stringify(data));
+            return true;
+        } catch (error) {
+            console.error('Failed to save to localStorage:', error);
+            return false;
+        }
+    }
+
+    getFromStorage(shareId) {
+        try {
+            const data = localStorage.getItem(this.storageKey + shareId);
+            return data ? JSON.parse(data) : null;
+        } catch (error) {
+            console.error('Failed to read from localStorage:', error);
+            return null;
+        }
+    }
+
+    removeFromStorage(shareId) {
+        try {
+            localStorage.removeItem(this.storageKey + shareId);
+        } catch (error) {
+            console.error('Failed to remove from localStorage:', error);
+        }
+    }
+
+    cleanupExpiredItems() {
+        try {
+            const keysToRemove = [];
+            const now = Date.now();
+            
+            // Check all localStorage items with our prefix
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && key.startsWith(this.storageKey)) {
+                    const data = this.getFromStorage(key.replace(this.storageKey, ''));
+                    if (data && data.expiresAt && now > data.expiresAt) {
+                        keysToRemove.push(key);
+                    }
+                }
+            }
+            
+            // Remove expired items
+            keysToRemove.forEach(key => {
+                localStorage.removeItem(key);
+            });
+        } catch (error) {
+            console.error('Failed to cleanup expired items:', error);
+        }
+    
         if (!code.trim()) return 'Plain Text';
 
         // Language detection patterns
@@ -244,13 +299,17 @@ class CodeShare {
             const language = this.detectLanguage(code);
             const expiresAt = Date.now() + (30 * 60 * 1000); // 30 minutes
 
-            // Store in memory (in a real app, this would be a database)
-            this.storage.set(shareId, {
+            // Store in localStorage for persistence
+            const success = this.saveToStorage(shareId, {
                 code,
                 language,
                 expiresAt,
                 createdAt: Date.now()
             });
+
+            if (!success) {
+                throw new Error('Failed to save code');
+            }
 
             const shareUrl = `${window.location.origin}${window.location.pathname}?share=${shareId}`;
             this.shareLink.value = shareUrl;
@@ -308,6 +367,9 @@ class CodeShare {
                 this.clearTimer();
                 this.showNotification('Share link has expired!', 'error');
                 this.resultSection.classList.remove('show');
+                
+                // Clean up expired localStorage items
+                this.cleanupExpiredItems();
                 return;
             }
             
@@ -330,12 +392,15 @@ class CodeShare {
         const shareId = urlParams.get('share');
         
         if (shareId) {
-            const sharedData = this.storage.get(shareId);
+            const sharedData = this.getFromStorage(shareId);
             
             if (sharedData) {
+                // Check if expired
                 if (Date.now() > sharedData.expiresAt) {
                     this.showNotification('This shared code has expired!', 'error');
-                    this.storage.delete(shareId);
+                    this.removeFromStorage(shareId);
+                    // Clean up URL
+                    window.history.replaceState({}, document.title, window.location.pathname);
                     return;
                 }
                 
@@ -348,13 +413,20 @@ class CodeShare {
                 const remainingTime = Math.floor((sharedData.expiresAt - Date.now()) / 1000);
                 if (remainingTime > 0) {
                     this.startTimer(remainingTime);
+                    
+                    // Show the result section with the current link
+                    const shareUrl = `${window.location.origin}${window.location.pathname}?share=${shareId}`;
+                    this.shareLink.value = shareUrl;
+                    this.resultSection.classList.add('show');
                 }
             } else {
                 this.showNotification('Shared code not found or has expired!', 'error');
             }
             
-            // Clean up URL
-            window.history.replaceState({}, document.title, window.location.pathname);
+            // Clean up URL after a short delay to allow users to see the full URL
+            setTimeout(() => {
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }, 2000);
         }
     }
 
