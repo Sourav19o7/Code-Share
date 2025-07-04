@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CodeShare - Share Code Instantly</title>
+    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1 class="logo">CodeShare</h1>
+            <p class="tagline">Share your code instantly with auto-detection and 30-minute expiry</p>
+        </header>
+
+        <main class="main-content">
+            <div class="card">
+                <div class="input-section">
+                    <h2 class="section-title">Paste Your Code</h2>
+                    <div class="language-info" id="languageInfo">
+                        <span class="material-icons">code</span>
+                        <span>Language: </span>
+                        <span class="language-tag" id="detectedLanguage">Auto-detecting...</span>
+                    </div>
+                    <div class="code-container">
+                        <textarea 
+                            class="code-input" 
+                            id="codeInput" 
+                            placeholder="Paste your code here... Language will be auto-detected!"
+                            spellcheck="false"
+                        ></textarea>
+                        <div class="code-preview" id="codePreview">
+                            <pre><code id="highlightedCode"></code></pre>
+                        </div>
+                        <button class="toggle-preview" id="togglePreview">Preview</button>
+                    </div>
+                </div>
+
+                <div class="actions">
+                    <button class="btn" id="shareBtn">
+                        <span class="material-icons">share</span>
+                        Share Code
+                    </button>
+                    <button class="btn btn-secondary" id="clearBtn">
+                        <span class="material-icons">clear</span>
+                        Clear
+                    </button>
+                </div>
+
+                <div class="result-section" id="resultSection">
+                    <h3 class="section-title">Your Share Link</h3>
+                    <div class="share-link">
+                        <input type="text" class="link-input" id="shareLink" readonly>
+                        <button class="btn btn-secondary" id="copyBtn">
+                            <span class="material-icons">content_copy</span>
+                            Copy
+                        </button>
+                    </div>
+                    <div class="timer" id="timer">
+                        <span class="material-icons">timer</span>
+                        <span id="timeLeft">30:00</span>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <footer class="footer">
+            <p>Built with modern web technologies • Links expire in 30 minutes</p>
+        </footer>
+    </div>
+
+    <div class="notification" id="notification"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
