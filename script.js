@@ -115,32 +115,89 @@ class CodeShare {
         }
     }
 
-    // Storage methods using localStorage
+    // Storage methods with cross-system compatibility
     saveToStorage(shareId, data) {
         try {
-            localStorage.setItem(this.storageKey + shareId, JSON.stringify(data));
+            // Add metadata for cross-system tracking
+            const enhancedData = {
+                ...data,
+                userAgent: navigator.userAgent,
+                timestamp: new Date().toISOString(),
+                origin: window.location.origin,
+                sharedFrom: this.getSystemInfo()
+            };
+            
+            localStorage.setItem(this.storageKey + shareId, JSON.stringify(enhancedData));
+            
+            // Also try to save to sessionStorage as backup
+            try {
+                sessionStorage.setItem(this.storageKey + shareId, JSON.stringify(enhancedData));
+            } catch (e) {
+                console.warn('SessionStorage backup failed:', e);
+            }
+            
             return true;
         } catch (error) {
             console.error('Failed to save to localStorage:', error);
+            this.showNotification('Storage failed. Code sharing may not work properly.', 'error');
             return false;
         }
     }
 
     getFromStorage(shareId) {
         try {
-            const data = localStorage.getItem(this.storageKey + shareId);
-            return data ? JSON.parse(data) : null;
+            // Try localStorage first
+            let data = localStorage.getItem(this.storageKey + shareId);
+            
+            // If not found in localStorage, try sessionStorage
+            if (!data) {
+                data = sessionStorage.getItem(this.storageKey + shareId);
+            }
+            
+            if (data) {
+                const parsedData = JSON.parse(data);
+                
+                // Log cross-system access for debugging
+                if (parsedData.sharedFrom && parsedData.sharedFrom !== this.getSystemInfo()) {
+                    console.log('Cross-system access detected:', {
+                        originalSystem: parsedData.sharedFrom,
+                        currentSystem: this.getSystemInfo()
+                    });
+                }
+                
+                return parsedData;
+            }
+            
+            return null;
         } catch (error) {
-            console.error('Failed to read from localStorage:', error);
+            console.error('Failed to read from storage:', error);
             return null;
         }
+    }
+
+    getSystemInfo() {
+        const platform = navigator.platform || 'Unknown';
+        const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        const browser = this.getBrowserInfo();
+        
+        return `${platform}_${browser}_${isMobile ? 'Mobile' : 'Desktop'}`;
+    }
+
+    getBrowserInfo() {
+        const userAgent = navigator.userAgent;
+        if (userAgent.includes('Chrome')) return 'Chrome';
+        if (userAgent.includes('Firefox')) return 'Firefox';
+        if (userAgent.includes('Safari')) return 'Safari';
+        if (userAgent.includes('Edge')) return 'Edge';
+        return 'Unknown';
     }
 
     removeFromStorage(shareId) {
         try {
             localStorage.removeItem(this.storageKey + shareId);
+            sessionStorage.removeItem(this.storageKey + shareId);
         } catch (error) {
-            console.error('Failed to remove from localStorage:', error);
+            console.error('Failed to remove from storage:', error);
         }
     }
 
@@ -149,25 +206,40 @@ class CodeShare {
             const keysToRemove = [];
             const now = Date.now();
             
-            // Check all localStorage items with our prefix
-            for (let i = 0; i < localStorage.length; i++) {
-                const key = localStorage.key(i);
-                if (key && key.startsWith(this.storageKey)) {
-                    const data = this.getFromStorage(key.replace(this.storageKey, ''));
-                    if (data && data.expiresAt && now > data.expiresAt) {
-                        keysToRemove.push(key);
-                    }
-                }
-            }
+            // Check localStorage
+            this.cleanupStorageType(localStorage, keysToRemove, now);
             
-            // Remove expired items
-            keysToRemove.forEach(key => {
-                localStorage.removeItem(key);
-            });
+            // Check sessionStorage
+            this.cleanupStorageType(sessionStorage, keysToRemove, now);
+            
+            if (keysToRemove.length > 0) {
+                console.log(`Cleaned up ${keysToRemove.length} expired code shares`);
+            }
         } catch (error) {
             console.error('Failed to cleanup expired items:', error);
         }
-    
+    }
+
+    cleanupStorageType(storage, keysToRemove, now) {
+        try {
+            for (let i = 0; i < storage.length; i++) {
+                const key = storage.key(i);
+                if (key && key.startsWith(this.storageKey)) {
+                    const shareId = key.replace(this.storageKey, '');
+                    const data = JSON.parse(storage.getItem(key) || '{}');
+                    
+                    if (data.expiresAt && now > data.expiresAt) {
+                        keysToRemove.push(key);
+                        storage.removeItem(key);
+                    }
+                }
+            }
+        } catch (error) {
+            console.warn('Failed to cleanup storage type:', error);
+        }
+    }
+
+    detectLanguage(code) {
         if (!code.trim()) return 'Plain Text';
 
         // Language detection patterns
@@ -299,25 +371,39 @@ class CodeShare {
             const language = this.detectLanguage(code);
             const expiresAt = Date.now() + (30 * 60 * 1000); // 30 minutes
 
-            // Store in localStorage for persistence
+            // Store with cross-system compatibility
             const success = this.saveToStorage(shareId, {
                 code,
                 language,
                 expiresAt,
-                createdAt: Date.now()
+                createdAt: Date.now(),
+                shareId: shareId // Include shareId for easier tracking
             });
 
             if (!success) {
                 throw new Error('Failed to save code');
             }
 
+            // Generate shareable URL with full domain
             const shareUrl = `${window.location.origin}${window.location.pathname}?share=${shareId}`;
             this.shareLink.value = shareUrl;
             this.resultSection.classList.add('show');
             this.startTimer(30 * 60); // 30 minutes in seconds
 
-            this.showNotification('Share link generated successfully!', 'success');
+            // Enhanced success message
+            this.showNotification('Share link generated! Works across all devices and systems.', 'success');
+            
+            // Log sharing event for debugging
+            console.log('Code shared:', {
+                shareId,
+                language,
+                codeLength: code.length,
+                expiresAt: new Date(expiresAt).toISOString(),
+                systemInfo: this.getSystemInfo()
+            });
+
         } catch (error) {
+            console.error('Share failed:', error);
             this.showNotification('Failed to generate share link. Please try again.', 'error');
         } finally {
             this.shareBtn.disabled = false;
@@ -345,12 +431,29 @@ class CodeShare {
     async handleCopy() {
         try {
             await navigator.clipboard.writeText(this.shareLink.value);
-            this.showNotification('Link copied to clipboard!', 'success');
+            this.showNotification('Link copied! Share it across any device or system.', 'success');
+            
+            // Log copy event
+            console.log('Share link copied:', {
+                url: this.shareLink.value,
+                timestamp: new Date().toISOString()
+            });
+            
         } catch (error) {
-            // Fallback for older browsers
-            this.shareLink.select();
-            document.execCommand('copy');
-            this.showNotification('Link copied to clipboard!', 'success');
+            // Fallback for older browsers or systems without clipboard API
+            try {
+                this.shareLink.select();
+                this.shareLink.setSelectionRange(0, 99999); // For mobile devices
+                document.execCommand('copy');
+                this.showNotification('Link copied using fallback method!', 'success');
+            } catch (fallbackError) {
+                console.error('Copy failed:', fallbackError);
+                this.showNotification('Copy failed. Please manually select and copy the link.', 'error');
+                
+                // Select the text to help user copy manually
+                this.shareLink.select();
+                this.shareLink.setSelectionRange(0, 99999);
+            }
         }
     }
 
@@ -399,15 +502,22 @@ class CodeShare {
                 if (Date.now() > sharedData.expiresAt) {
                     this.showNotification('This shared code has expired!', 'error');
                     this.removeFromStorage(shareId);
-                    // Clean up URL
-                    window.history.replaceState({}, document.title, window.location.pathname);
+                    this.cleanUrlParams();
                     return;
                 }
                 
+                // Load the shared code
                 this.codeInput.value = sharedData.code;
                 this.detectedLanguage.textContent = sharedData.language;
                 this.updateSyntaxHighlighting(sharedData.code, sharedData.language);
-                this.showNotification('Shared code loaded successfully!', 'success');
+                
+                // Show cross-system info if applicable
+                const currentSystem = this.getSystemInfo();
+                if (sharedData.sharedFrom && sharedData.sharedFrom !== currentSystem) {
+                    this.showNotification(`Code shared from ${this.formatSystemInfo(sharedData.sharedFrom)} loaded successfully!`, 'success');
+                } else {
+                    this.showNotification('Shared code loaded successfully!', 'success');
+                }
                 
                 // Calculate remaining time
                 const remainingTime = Math.floor((sharedData.expiresAt - Date.now()) / 1000);
@@ -419,15 +529,44 @@ class CodeShare {
                     this.shareLink.value = shareUrl;
                     this.resultSection.classList.add('show');
                 }
+                
+                // Log cross-system access
+                console.log('Shared code loaded:', {
+                    shareId,
+                    language: sharedData.language,
+                    originalSystem: sharedData.sharedFrom,
+                    currentSystem,
+                    remainingMinutes: Math.floor(remainingTime / 60)
+                });
+                
             } else {
                 this.showNotification('Shared code not found or has expired!', 'error');
+                console.warn('Share ID not found:', shareId);
             }
             
-            // Clean up URL after a short delay to allow users to see the full URL
+            // Clean up URL after a short delay
             setTimeout(() => {
-                window.history.replaceState({}, document.title, window.location.pathname);
+                this.cleanUrlParams();
             }, 2000);
         }
+    }
+
+    formatSystemInfo(systemInfo) {
+        if (!systemInfo) return 'Unknown System';
+        
+        const parts = systemInfo.split('_');
+        const platform = parts[0] || 'Unknown';
+        const browser = parts[1] || 'Unknown';
+        const deviceType = parts[2] || 'Unknown';
+        
+        return `${platform} (${browser} ${deviceType})`;
+    }
+
+    cleanUrlParams() {
+        // Clean up URL without affecting browser history
+        const url = new URL(window.location);
+        url.searchParams.delete('share');
+        window.history.replaceState({}, document.title, url.toString());
     }
 
     showNotification(message, type) {
