@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CodeShare - Share Code Snippets Instantly</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="logo">
+                <h1>CodeShare</h1>
+                <p>Share code snippets that expire in 30 minutes</p>
+            </div>
+        </header>
+
+        <main class="main">
+            <div class="upload-section">
+                <div class="form-group">
+                    <label for="filename">Filename (optional)</label>
+                    <input type="text" id="filename" placeholder="example.js" autocomplete="off">
+                </div>
+
+                <div class="form-group">
+                    <label for="code">Code</label>
+                    <textarea id="code" placeholder="Paste your code here..." spellcheck="false"></textarea>
+                </div>
+
+                <div class="form-actions">
+                    <button id="shareBtn" class="btn btn-primary">
+                        <span class="btn-text">Share Code</span>
+                        <div class="spinner" style="display: none;"></div>
+                    </button>
+                    <button id="clearBtn" class="btn btn-secondary">Clear</button>
+                </div>
+
+                <div id="result" class="result" style="display: none;">
+                    <h3>Code Shared Successfully!</h3>
+                    <div class="result-info">
+                        <div class="info-item">
+                            <label>Share Link:</label>
+                            <div class="link-container">
+                                <input type="text" id="shareLink" readonly>
+                                <button id="copyBtn" class="btn btn-copy">Copy</button>
+                            </div>
+                        </div>
+                        <div class="info-item">
+                            <label>Detected Language:</label>
+                            <span id="detectedLang" class="language-tag"></span>
+                        </div>
+                        <div class="info-item">
+                            <label>Expires In:</label>
+                            <span id="expiresIn" class="expires-tag">30 minutes</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="features">
+                <div class="feature">
+                    <h3>🚀 Instant Sharing</h3>
+                    <p>Share code snippets instantly with auto-generated links</p>
+                </div>
+                <div class="feature">
+                    <h3>🔍 Auto Detection</h3>
+                    <p>Automatically detects programming language for syntax highlighting</p>
+                </div>
+                <div class="feature">
+                    <h3>⏰ Auto Expiry</h3>
+                    <p>All shared code expires in 30 minutes for privacy</p>
+                </div>
+                <div class="feature">
+                    <h3>🎨 Clean Design</h3>
+                    <p>Minimalist dark theme with beautiful syntax highlighting</p>
+                </div>
+            </div>
+        </main>
+
+        <footer class="footer">
+            <p>&copy; 2025 CodeShare. Built with ❤️ for developers.</p>
+        </footer>
+    </div>
+
+    <div id="toast" class="toast"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>

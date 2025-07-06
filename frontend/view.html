@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CodeShare - View Code</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="logo">
+                <h1><a href="/">CodeShare</a></h1>
+                <p>Viewing shared code snippet</p>
+            </div>
+        </header>
+
+        <main class="main">
+            <div id="loading" class="loading">
+                <div class="spinner"></div>
+                <p>Loading code snippet...</p>
+            </div>
+
+            <div id="error" class="error" style="display: none;">
+                <h2>🚫 Code Not Found</h2>
+                <p>This code snippet either doesn't exist or has expired.</p>
+                <a href="/" class="btn btn-primary">Share New Code</a>
+            </div>
+
+            <div id="codeView" class="code-view" style="display: none;">
+                <div class="code-header">
+                    <div class="code-info">
+                        <div class="info-item">
+                            <label>Filename:</label>
+                            <span id="filename" class="filename"></span>
+                        </div>
+                        <div class="info-item">
+                            <label>Language:</label>
+                            <span id="language" class="language-tag"></span>
+                        </div>
+                        <div class="info-item">
+                            <label>Expires:</label>
+                            <span id="timeLeft" class="expires-tag"></span>
+                        </div>
+                        <div class="info-item">
+                            <label>Views:</label>
+                            <span id="views" class="views-count"></span>
+                        </div>
+                    </div>
+                    <div class="code-actions">
+                        <button id="copyCodeBtn" class="btn btn-copy">Copy Code</button>
+                        <button id="downloadBtn" class="btn btn-secondary">Download</button>
+                        <button id="rawBtn" class="btn btn-secondary">Raw</button>
+                    </div>
+                </div>
+
+                <div class="code-container">
+                    <pre><code id="codeContent" class="hljs"></code></pre>
+                </div>
+
+                <div class="code-footer">
+                    <a href="/" class="btn btn-primary">Share Your Own Code</a>
+                </div>
+            </div>
+        </main>
+
+        <footer class="footer">
+            <p>&copy; 2025 CodeShare. Built with ❤️ for developers.</p>
+        </footer>
+    </div>
+
+    <div id="toast" class="toast"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script>
+        const API_BASE = 'http://localhost:3000/api';
+        
+        // Get code ID from URL
+        const codeId = window.location.pathname.split('/').pop();
+        let codeData = null;
+
+        // Load code on page load
+        document.addEventListener('DOMContentLoaded', loadCode);
+
+        async function loadCode() {
+            try {
+                const response = await fetch(`${API_BASE}/code/${codeId}`);
+                
+                if (!response.ok) {
+                    throw new Error('Code not found');
+                }
+
+                codeData = await response.json();
+                displayCode();
+            } catch (error) {
+                showError();
+            }
+        }
+
+        function displayCode() {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('codeView').style.display = 'block';
+            
+            // Update document title
+            document.title = `${codeData.filename} - CodeShare`;
+            
+            // Fill in the data
+            document.getElementById('filename').textContent = codeData.filename;
+            document.getElementById('language').textContent = codeData.language;
+            document.getElementById('timeLeft').textContent = codeData.timeLeft;
+            document.getElementById('views').textContent = codeData.views;
+            
+            // Highlight and display code
+            const codeElement = document.getElementById('codeContent');
+            codeElement.textContent = codeData.code;
+            codeElement.className = `hljs language-${codeData.language}`;
+            hljs.highlightElement(codeElement);
+        }
+
+        function showError() {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('error').style.display = 'block';
+        }
+
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = `toast ${type} show`;
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        // Event listeners
+        document.getElementById('copyCodeBtn').addEventListener('click', async () => {
+            try {
+                await navigator.clipboard.writeText(codeData.code);
+                showToast('Code copied to clipboard!');
+            } catch (error) {
+                showToast('Failed to copy code', 'error');
+            }
+        });
+
+        document.getElementById('downloadBtn').addEventListener('click', () => {
+            const blob = new Blob([codeData.code], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = codeData.filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showToast('Code downloaded!');
+        });
+
+        document.getElementById('rawBtn').addEventListener('click', () => {
+            const newWindow = window.open('', '_blank');
+            newWindow.document.write(`<pre style="font-family: 'Fira Code', 'Courier New', monospace; padding: 20px; background: #0d1117; color: #f0f6fc; margin: 0;">${codeData.code}</pre>`);
+            newWindow.document.title = `${codeData.filename} - Raw`;
+        });
+    </script>
+</body>
+</html>
